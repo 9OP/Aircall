@@ -1,0 +1,77 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Incident {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  message    String
+  escalation Int      @default(0)
+  status     Int
+
+  service   Service @relation(fields: [serviceId], references: [id])
+  serviceId Int
+
+  @@map("incidents")
+}
+
+model Service {
+  id      Int     @id @default(autoincrement())
+  name    String
+  healthy Boolean @default(true)
+
+  incident Incident[]
+  policy   Policy[]
+
+  @@map("services")
+}
+
+model Policy {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  service     Service[]
+  policyLevel PolicyLevel[]
+  @@map("policies")
+}
+
+model PolicyLevel {
+  escalation Int
+
+  policy   Policy @relation(fields: [policyId], references: [id])
+  policyId Int
+
+  level   Level @relation(fields: [levelId], references: [id])
+  levelId Int
+
+  @@id([policyId, levelId])
+  @@unique([policyId, levelId, escalation])
+  @@map("policies_levels")
+}
+
+model Level {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  PolicyLevel PolicyLevel[]
+  target      Target[]
+  @@map("levels")
+}
+
+model Target {
+  id      Int    @id @default(autoincrement())
+  type    Int
+  contact String
+
+  level Level[]
+  @@map("targets")
+}

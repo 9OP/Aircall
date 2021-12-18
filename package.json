@@ -4,8 +4,12 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc -w",
+    "dev": "nodemon",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "prisma": {
+    "schema": "src/db/schema.prisma",
+    "seed": "ts-node src/db/seed.ts"
   },
   "author": "martin",
   "license": "MIT",
@@ -14,6 +18,12 @@
     "@typescript-eslint/eslint-plugin": "^5.7.0",
     "@typescript-eslint/parser": "^5.7.0",
     "eslint": "^8.5.0",
+    "nodemon": "^2.0.15",
+    "prisma": "^3.6.0",
+    "ts-node": "^10.4.0",
     "typescript": "^4.5.4"
+  },
+  "dependencies": {
+    "@prisma/client": "^3.6.0"
   }
 }
