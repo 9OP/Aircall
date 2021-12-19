@@ -15,6 +15,8 @@
 
 ## ER schema
 
+![ER](ER.png "ER")
+
 ## Setup
 
 Install the project dependancies:

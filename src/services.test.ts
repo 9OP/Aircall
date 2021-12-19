@@ -1,6 +1,8 @@
-import { listIncidents, upsertPolicy } from ".";
+import { Service } from ".prisma/client";
+import { aknowledgeIncident, createIncident, listIncidents, upsertPolicy } from ".";
+import { NotifierAdapter, TimerAdapter } from "./adapters";
 import { prisma } from "./db";
-import { ETargetType } from "./db/enums";
+import { EIncidentStatus, ETargetType } from "./db/enums";
 import { Level } from "./services";
 
 const deleteTable = async (name: string) => {
@@ -13,7 +15,6 @@ const deleteTable = async (name: string) => {
 beforeEach(async () => {
   // Not the cleanest way to reset the database before each test...
   // But prisma testing is not well documented yet
-  console.log("beforeearch");
   await deleteTable("policies_levels");
   await deleteTable("incidents");
   await deleteTable("services");
@@ -140,4 +141,103 @@ describe("ListIncidents", () => {
       ])
     );
   });
+});
+
+describe("CloseIncidents", () => {
+  it.todo("should close incident");
+
+  it.todo("should recover healthy when all incidents are closed");
+});
+
+describe("AknowledgeIncident", () => {
+  it("should aknowledge incident", async () => {
+    const target = await prisma.target.create({
+      data: {
+        type: ETargetType.EMAIL,
+        contact: "bob@monster.inc",
+      },
+    });
+    const service = await prisma.service.create({
+      data: { name: "Service", policy: { create: { name: "policy" } } },
+    });
+    const incident = await prisma.incident.create({
+      data: {
+        message: "Alert",
+        serviceId: service.id,
+        status: EIncidentStatus.OPEN,
+      },
+    });
+
+    const result = await aknowledgeIncident(incident.id, target.id);
+
+    expect(result.status).toEqual(EIncidentStatus.AKNOWLEDGED);
+    expect(result.aknowledgerId).toEqual(target.id);
+  });
+});
+
+describe("CreateIncident", () => {
+  let service: Service;
+
+  beforeEach(async () => {
+    service = await prisma.service.create({
+      data: {
+        name: "Service",
+        policy: {
+          create: {
+            name: "policy",
+            policiesLevels: {
+              create: {
+                escalation: 1,
+                level: {
+                  create: {
+                    name: "CS-1",
+                    targets: { create: { type: ETargetType.EMAIL, contact: "bob@monster.inc" } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+
+  it("should create incident and escalate and notify", async () => {
+    const timer = new TimerAdapter();
+    const notifier = new NotifierAdapter();
+
+    const spyTimer = jest.spyOn(timer, "setTimer");
+    const spyNotifier = jest.spyOn(notifier, "notify");
+
+    const result = await createIncident("Alert", service.id, timer, notifier);
+
+    expect(result?.incident.status).toEqual(EIncidentStatus.OPEN);
+    expect(result?.service.healthy).toBe(false);
+    expect(spyTimer).toHaveBeenCalledTimes(1);
+    expect(spyNotifier).toHaveBeenCalledTimes(1);
+  });
+
+  it("should not escalte and notify when service is not healthy", async () => {
+    await prisma.service.update({ where: { id: service.id }, data: { healthy: false } });
+
+    const timer = new TimerAdapter();
+    const notifier = new NotifierAdapter();
+
+    const spyTimer = jest.spyOn(timer, "setTimer");
+    const spyNotifier = jest.spyOn(notifier, "notify");
+
+    const result = await createIncident("Alert", service.id, timer, notifier);
+
+    expect(result?.incident.status).toEqual(EIncidentStatus.OPEN);
+    expect(spyTimer).toHaveBeenCalledTimes(0); // not called because service not healthy
+    expect(spyNotifier).toHaveBeenCalledTimes(0); // not called because service not healthy
+  });
+});
+
+describe("AknowledgeTimeout", () => {
+  it.todo("should not escalate when service is healthy");
+
+  it.todo("should not escalate when incident is aknowledged or closed");
+
+  it.todo("should escalate and notify otherwise");
 });

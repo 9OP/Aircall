@@ -139,7 +139,10 @@ export const createIncident = async (
   timer: TimerAdapter,
   notifier: NotifierAdapter
 ) => {
-  const service = await prisma.service.findUnique({ where: { id: serviceId } });
+  let service = await prisma.service.findFirst({ where: { id: serviceId } });
+  if (!service) {
+    return;
+  }
 
   const incident = await prisma.incident.create({
     data: {
@@ -151,21 +154,20 @@ export const createIncident = async (
 
   // Escalate and notify only healthy service
   if (service?.healthy) {
-    escalateAndNotify(service, incident, timer, notifier);
+    service = await escalateAndNotify(service, incident, timer, notifier);
   }
 
   return { incident, service };
 };
 
-// should prevent escalation to unknown policy
-const escalateAndNotify = async (
+export const escalateAndNotify = async (
   service: Service,
   incident: Incident,
   timer: TimerAdapter,
   notifier: NotifierAdapter
-) => {
+): Promise<Service> => {
   // Set service status to unhealthy
-  service = await prisma.service.update({
+  const unhealthyService = await prisma.service.update({
     where: { id: service.id },
     data: { healthy: false },
   });
@@ -192,6 +194,8 @@ const escalateAndNotify = async (
     const now = incident.updatedAt.getTime();
     timer.setTimer(new Date(now + 15 * 60000), aknowledgeTimeout);
   }
+
+  return unhealthyService;
 };
 
 export const aknowledgeTimeout = async (
