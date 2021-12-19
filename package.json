@@ -5,7 +5,10 @@
   "scripts": {
     "build": "tsc",
     "dev": "dotenv -e .env.dev nodemon",
-    "test": "dotenv -e .env.test npx prisma migrate reset -- --force --skip-seed && dotenv -e .env.test jest"
+    "seed": "npm run reset:dev && dotenv -e .env.dev npx prisma db seed",
+    "test": "npm run reset:test && dotenv -e .env.test jest",
+    "reset:dev": "dotenv -e .env.dev npx prisma migrate reset -- --force --skip-seed",
+    "reset:test": "dotenv -e .env.test npx prisma migrate reset -- --force --skip-seed"
   },
   "prisma": {
     "schema": "src/db/schema.prisma",
