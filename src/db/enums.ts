@@ -1,11 +1,11 @@
 // We have to use ts enums instead of Prisma enums, because sqlite does not support enums
 
-enum ETargetType {
+export enum ETargetType {
   SMS,
   EMAIL,
 }
 
-enum EIncidentStatus {
+export enum EIncidentStatus {
   OPEN,
   AKNOWLEDGED,
   CLOSED,

@@ -16,7 +16,7 @@ model Incident {
   updatedAt  DateTime @updatedAt
   message    String
   escalation Int      @default(0)
-  status     Int
+  status     Int      @default(0)
 
   service   Service @relation(fields: [serviceId], references: [id])
   serviceId Int
