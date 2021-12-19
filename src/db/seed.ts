@@ -10,9 +10,9 @@ const incidents: Prisma.IncidentCreateInput[] = [
     status: EIncidentStatus.CLOSED,
   },
   {
-    message: "Child in Monstropolis",
+    message: "Children outbreak in Monstropolis",
     service: { connect: { id: 3 } },
-    escalation: 3,
+    escalation: 2,
     status: EIncidentStatus.AKNOWLEDGED,
   },
 ];
@@ -27,36 +27,45 @@ const services: Prisma.ServiceCreateInput[] = [
   { name: "Service Gamma", policy: { connect: { id: 2 } } }, // medium-impact
   { name: "Service Delta", policy: { connect: { id: 3 } } }, // high-impact
 ];
-const levels: Prisma.LevelCreateInput[] = [{ name: "CS-1" }, { name: "CS-2" }, { name: "CS-3" }];
+const levels: Prisma.LevelCreateInput[] = [
+  { name: "CS-0" },
+  { name: "CS-1" },
+  { name: "CS-2" },
+  { name: "CS-3" },
+];
 const targets: Prisma.TargetCreateInput[] = [
-  { type: ETargetType.EMAIL, contact: "bob@monster.inc", level: { connect: [{ id: 1 }] } }, // CS-1
+  {
+    type: ETargetType.EMAIL,
+    contact: "bob@monster.inc",
+    levels: { connect: [{ id: 1 }, { id: 2 }] },
+  }, //CS-0, CS-1
   {
     type: ETargetType.EMAIL,
     contact: "sully@monster.inc",
-    level: { connect: [{ id: 1 }, { id: 2 }] }, // CS-1, CS-2
+    levels: { connect: [{ id: 2 }, { id: 3 }] }, // CS-1, CS-2
   },
   {
     type: ETargetType.EMAIL,
     contact: "leon@monster.inc",
-    level: { connect: [{ id: 1 }, { id: 2 }] }, // CS-1, CS-2
+    levels: { connect: [{ id: 2 }, { id: 3 }] }, // CS-1, CS-2
   },
   // yup this is my personal number... not yet a monsterInc employee sadly, but hopefully an Aircall employee soon
   {
     type: ETargetType.SMS,
     contact: "+33 6 61 51 30 63",
-    level: { connect: [{ id: 1 }, { id: 2 }, { id: 3 }] }, // CS-1, CS-2, CS-3 hehe 😎
+    levels: { connect: [{ id: 3 }, { id: 4 }] },
   },
 ];
 const policiesLevels: Prisma.PolicyLevelCreateInput[] = [
-  // low-impact policy can escalate to CS-1
+  // low-impact policy can escalate from CS-0 to CS-1
   { escalation: 1, policy: { connect: { id: 1 } }, level: { connect: { id: 1 } } },
-  // medium-impact policy can escalate to CS-2
-  { escalation: 1, policy: { connect: { id: 2 } }, level: { connect: { id: 1 } } },
-  { escalation: 2, policy: { connect: { id: 2 } }, level: { connect: { id: 2 } } },
-  // high-impact policy can escalate to CS-3
-  { escalation: 1, policy: { connect: { id: 3 } }, level: { connect: { id: 1 } } },
-  { escalation: 2, policy: { connect: { id: 3 } }, level: { connect: { id: 2 } } },
-  { escalation: 3, policy: { connect: { id: 3 } }, level: { connect: { id: 3 } } },
+  { escalation: 2, policy: { connect: { id: 1 } }, level: { connect: { id: 2 } } },
+  // medium-impact policy can escalate from CS-1 to CS-2
+  { escalation: 1, policy: { connect: { id: 2 } }, level: { connect: { id: 2 } } },
+  { escalation: 2, policy: { connect: { id: 2 } }, level: { connect: { id: 3 } } },
+  // high-impact policy can escalate from CS-2 to CS-3
+  { escalation: 1, policy: { connect: { id: 3 } }, level: { connect: { id: 3 } } },
+  { escalation: 2, policy: { connect: { id: 3 } }, level: { connect: { id: 4 } } },
 ];
 
 async function seed() {

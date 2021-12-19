@@ -5,7 +5,7 @@ CREATE TABLE "incidents" (
     "updatedAt" DATETIME NOT NULL,
     "message" TEXT NOT NULL,
     "escalation" INTEGER NOT NULL DEFAULT 0,
-    "status" INTEGER NOT NULL,
+    "status" INTEGER NOT NULL DEFAULT 0,
     "serviceId" INTEGER NOT NULL,
     CONSTRAINT "incidents_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "services" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
@@ -14,7 +14,9 @@ CREATE TABLE "incidents" (
 CREATE TABLE "services" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "name" TEXT NOT NULL,
-    "healthy" BOOLEAN NOT NULL DEFAULT true
+    "healthy" BOOLEAN NOT NULL DEFAULT true,
+    "policyId" INTEGER NOT NULL,
+    CONSTRAINT "services_policyId_fkey" FOREIGN KEY ("policyId") REFERENCES "policies" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -48,14 +50,6 @@ CREATE TABLE "targets" (
 );
 
 -- CreateTable
-CREATE TABLE "_PolicyToService" (
-    "A" INTEGER NOT NULL,
-    "B" INTEGER NOT NULL,
-    FOREIGN KEY ("A") REFERENCES "policies" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    FOREIGN KEY ("B") REFERENCES "services" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-
--- CreateTable
 CREATE TABLE "_LevelToTarget" (
     "A" INTEGER NOT NULL,
     "B" INTEGER NOT NULL,
@@ -64,13 +58,28 @@ CREATE TABLE "_LevelToTarget" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "services_name_key" ON "services"("name");
+
+-- CreateIndex
+CREATE INDEX "services_name_idx" ON "services"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "policies_name_key" ON "policies"("name");
+
+-- CreateIndex
+CREATE INDEX "policies_name_idx" ON "policies"("name");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "policies_levels_policyId_levelId_escalation_key" ON "policies_levels"("policyId", "levelId", "escalation");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "_PolicyToService_AB_unique" ON "_PolicyToService"("A", "B");
+CREATE UNIQUE INDEX "levels_name_key" ON "levels"("name");
 
 -- CreateIndex
-CREATE INDEX "_PolicyToService_B_index" ON "_PolicyToService"("B");
+CREATE INDEX "levels_name_idx" ON "levels"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "targets_type_contact_key" ON "targets"("type", "contact");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "_LevelToTarget_AB_unique" ON "_LevelToTarget"("A", "B");

@@ -26,21 +26,25 @@ model Incident {
 
 model Service {
   id      Int     @id @default(autoincrement())
-  name    String
+  name    String  @unique
   healthy Boolean @default(true)
 
   incident Incident[]
-  policy   Policy[]
+  policy   Policy     @relation(fields: [policyId], references: [id])
+  policyId Int
 
+  @@index(name)
   @@map("services")
 }
 
 model Policy {
   id   Int    @id @default(autoincrement())
-  name String
+  name String @unique
 
-  service     Service[]
-  policyLevel PolicyLevel[]
+  policiesLevels PolicyLevel[]
+  services       Service[]
+
+  @@index(name)
   @@map("policies")
 }
 
@@ -60,10 +64,11 @@ model PolicyLevel {
 
 model Level {
   id   Int    @id @default(autoincrement())
-  name String
+  name String @unique
 
-  PolicyLevel PolicyLevel[]
-  target      Target[]
+  policiesLevels PolicyLevel[]
+  targets        Target[]
+  @@index(name)
   @@map("levels")
 }
 
@@ -72,6 +77,7 @@ model Target {
   type    Int
   contact String
 
-  level Level[]
+  levels Level[]
+  @@unique([type, contact])
   @@map("targets")
 }
