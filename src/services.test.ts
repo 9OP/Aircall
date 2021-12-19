@@ -1,9 +1,9 @@
-import { Service } from ".prisma/client";
+import { Incident, Service } from ".prisma/client";
 import { aknowledgeIncident, createIncident, listIncidents, upsertPolicy } from ".";
 import { NotifierAdapter, TimerAdapter } from "./adapters";
 import { prisma } from "./db";
 import { EIncidentStatus, ETargetType } from "./db/enums";
-import { Level } from "./services";
+import { aknowledgeTimeout, Level } from "./services";
 
 const deleteTable = async (name: string) => {
   await prisma.$executeRawUnsafe(`
@@ -177,8 +177,15 @@ describe("AknowledgeIncident", () => {
 
 describe("CreateIncident", () => {
   let service: Service;
+  const timer = new TimerAdapter();
+  const notifier = new NotifierAdapter();
+  let spyTimer: jest.SpyInstance;
+  let spyNotifier: jest.SpyInstance;
 
   beforeEach(async () => {
+    spyTimer = jest.spyOn(timer, "setTimer");
+    spyNotifier = jest.spyOn(notifier, "notify");
+
     service = await prisma.service.create({
       data: {
         name: "Service",
@@ -203,12 +210,6 @@ describe("CreateIncident", () => {
   });
 
   it("should create incident and escalate and notify", async () => {
-    const timer = new TimerAdapter();
-    const notifier = new NotifierAdapter();
-
-    const spyTimer = jest.spyOn(timer, "setTimer");
-    const spyNotifier = jest.spyOn(notifier, "notify");
-
     const result = await createIncident("Alert", service.id, timer, notifier);
 
     expect(result?.incident.status).toEqual(EIncidentStatus.OPEN);
@@ -217,14 +218,8 @@ describe("CreateIncident", () => {
     expect(spyNotifier).toHaveBeenCalledTimes(1);
   });
 
-  it("should not escalte and notify when service is not healthy", async () => {
+  it("should not escalate and notify when service is not healthy", async () => {
     await prisma.service.update({ where: { id: service.id }, data: { healthy: false } });
-
-    const timer = new TimerAdapter();
-    const notifier = new NotifierAdapter();
-
-    const spyTimer = jest.spyOn(timer, "setTimer");
-    const spyNotifier = jest.spyOn(notifier, "notify");
 
     const result = await createIncident("Alert", service.id, timer, notifier);
 
@@ -235,9 +230,86 @@ describe("CreateIncident", () => {
 });
 
 describe("AknowledgeTimeout", () => {
-  it.todo("should not escalate when service is healthy");
+  let service: Service;
+  let incident: Incident;
+  const timer = new TimerAdapter();
+  const notifier = new NotifierAdapter();
+  let spyTimer: jest.SpyInstance;
+  let spyNotifier: jest.SpyInstance;
 
-  it.todo("should not escalate when incident is aknowledged or closed");
+  beforeEach(async () => {
+    spyTimer = jest.spyOn(timer, "setTimer");
+    spyNotifier = jest.spyOn(notifier, "notify");
 
-  it.todo("should escalate and notify otherwise");
+    service = await prisma.service.create({
+      data: {
+        name: "Service",
+        policy: {
+          create: {
+            name: "policy",
+            policiesLevels: {
+              create: {
+                escalation: 1,
+                level: {
+                  create: {
+                    name: "CS-1",
+                    targets: { create: { type: ETargetType.EMAIL, contact: "bob@monster.inc" } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    incident = await prisma.incident.create({
+      data: {
+        message: "Alert",
+        serviceId: service.id,
+      },
+    });
+  });
+
+  it("should not escalate when service is healthy", async () => {
+    await aknowledgeTimeout(incident.id, timer, notifier);
+
+    expect(spyTimer).toHaveBeenCalledTimes(0); // not called because service is healthy
+    expect(spyNotifier).toHaveBeenCalledTimes(0); // not called because service is healthy
+  });
+
+  it("should not escalate when incident is aknowledged", async () => {
+    await prisma.incident.update({
+      where: { id: incident.id },
+      data: { status: EIncidentStatus.AKNOWLEDGED },
+    });
+    await aknowledgeTimeout(incident.id, timer, notifier);
+
+    expect(spyTimer).toHaveBeenCalledTimes(0); // not called because incident is AKNOWLEDGED
+    expect(spyNotifier).toHaveBeenCalledTimes(0); // not called because incident is AKNOWLEDGED
+  });
+
+  it("should not escalate when incident is closed", async () => {
+    await prisma.incident.update({
+      where: { id: incident.id },
+      data: { status: EIncidentStatus.CLOSED },
+    });
+    await aknowledgeTimeout(incident.id, timer, notifier);
+
+    expect(spyTimer).toHaveBeenCalledTimes(0); // not called because incident is CLOSED
+    expect(spyNotifier).toHaveBeenCalledTimes(0); // not called because incident is CLOSED
+  });
+
+  it("should escalate and notify when service is not healthy and incident is OPEN", async () => {
+    await prisma.service.update({ where: { id: service.id }, data: { healthy: false } });
+    await prisma.incident.update({
+      where: { id: incident.id },
+      data: { status: EIncidentStatus.OPEN },
+    });
+
+    await aknowledgeTimeout(incident.id, timer, notifier);
+
+    expect(spyTimer).toHaveBeenCalledTimes(1);
+    expect(spyNotifier).toHaveBeenCalledTimes(1);
+  });
 });

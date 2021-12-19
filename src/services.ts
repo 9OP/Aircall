@@ -227,5 +227,5 @@ export const aknowledgeTimeout = async (
   }
 
   // Then escalate to next level
-  escalateAndNotify(service, incident, timer, notifier);
+  await escalateAndNotify(service, incident, timer, notifier);
 };
