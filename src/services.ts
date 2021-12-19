@@ -1,20 +1,20 @@
-import { Incident, PrismaClient, Service } from ".prisma/client";
+import { Incident, Service } from ".prisma/client";
 import { NotifierAdapter, TimerAdapter } from "./adapters";
+import { prisma } from "./db";
 import { ETargetType, EIncidentStatus } from "./db/enums";
 
 // If schema.prisma is updated, you will need to re-generate the PrismaClient
 // to reflect new types/models with `npx prisma migrate`
-const prisma = new PrismaClient();
 
 // The controllers should have validated the following:
 // - escalations are greather than 0
 // - escalations are continuous
-interface Target {
+export interface Target {
   type: ETargetType;
   contact: string;
 }
 
-interface Level {
+export interface Level {
   escalation: number;
   name: string;
   targets: Target[];

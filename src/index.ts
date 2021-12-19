@@ -1,5 +1,6 @@
 import {
   upsertPolicy,
+  upsertLevel,
   listIncidents,
   closeIncident,
   createIncident,
@@ -9,6 +10,7 @@ import {
 
 export {
   upsertPolicy,
+  upsertLevel,
   listIncidents,
   closeIncident,
   createIncident,

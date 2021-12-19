@@ -1,12 +1,33 @@
 # Pager system
 
-Domain interfaces:
+- Stack: `TypeScript, Node, Prisma, Jest`
+- Tools: `Eslint, Nodemon`
 
-- Create escalation policy (policy name, service id, sets of targets)
+## Domain interfaces
+
+- Create/edit escalation policy (policy name, service id, levels(= set of targets))
+- Create/edit levels
+- List incidents
 - Close incident (mark service as healthy)
 - Create incident (alert message, service id, DI start timer)
 - Aknowledgement timeout (incident id)
 - Aknowledge incident (target id, incident id)
+
+## ER schema
+
+## Setup
+
+Install the project dependancies:
+
+```sh
+npm run install
+```
+
+Run the test suite:
+
+```sh
+npm run test
+```
 
 ## Help
 
@@ -29,13 +50,11 @@ You can launch the database web-based browser (super convenient, Prisma is a ver
 npx prisma studio # it should open your web browser automatically
 ```
 
-## ER schema
-
 ## Notes
 
 - Data validation should be handled by the controllers, not the services (I would use json schema and AJV to validate data from clients). Thus, the pager domain interfaces
   expect the data to be validated / formatted correctly (escalations should be continuous and greater than 0).
-- The ER schema could have been simplified even more (`PolicyLevel` table is not really required if levels have a fix escalation rank, I prefered not to so that the same level (= set of targets) can be used as a different escalation depending on the policy)
+- The ER schema could have been simplified even more (`PolicyLevel` table is not really required if levels have a fixed escalation rank, I prefered not to so that the same level (= set of targets) can be used as a different escalation depending on the policy)
 - The `Service` table is not really part of the pager domain, we could have removed it and simply use a `serviceId` attribute instead.
 - The main core entity of the pager domain is the `Incident`.
 - Some adapters are mocked and passed as DI services for the sake of simplicity (the implementation is not required, but I had to mock the interfaces of adapters).
