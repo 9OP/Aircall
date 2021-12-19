@@ -7,7 +7,9 @@ CREATE TABLE "incidents" (
     "escalation" INTEGER NOT NULL DEFAULT 0,
     "status" INTEGER NOT NULL DEFAULT 0,
     "serviceId" INTEGER NOT NULL,
-    CONSTRAINT "incidents_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "services" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    "targetId" INTEGER,
+    CONSTRAINT "incidents_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "services" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "incidents_targetId_fkey" FOREIGN KEY ("targetId") REFERENCES "targets" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -31,7 +33,7 @@ CREATE TABLE "policies_levels" (
     "policyId" INTEGER NOT NULL,
     "levelId" INTEGER NOT NULL,
 
-    PRIMARY KEY ("policyId", "levelId"),
+    PRIMARY KEY ("policyId", "escalation"),
     CONSTRAINT "policies_levels_policyId_fkey" FOREIGN KEY ("policyId") REFERENCES "policies" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "policies_levels_levelId_fkey" FOREIGN KEY ("levelId") REFERENCES "levels" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
@@ -68,9 +70,6 @@ CREATE UNIQUE INDEX "policies_name_key" ON "policies"("name");
 
 -- CreateIndex
 CREATE INDEX "policies_name_idx" ON "policies"("name");
-
--- CreateIndex
-CREATE UNIQUE INDEX "policies_levels_policyId_levelId_escalation_key" ON "policies_levels"("policyId", "levelId", "escalation");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "levels_name_key" ON "levels"("name");

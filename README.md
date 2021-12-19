@@ -33,6 +33,7 @@ npx prisma studio # it should open your web browser automatically
 
 ## Notes
 
-- Data validation should be handled by the controllers, not the services (I would use json schema and AJV to validate data from clients)
+- Data validation should be handled by the controllers, not the services (I would use json schema and AJV to validate data from clients). Thus, the pager domain interfaces
+  expect the data to be validated / formatted correctly.
 - The ER schema could have been simplified even more (`PolicyLevel` table is not really required if level have a fix escalation rank)
 - The `Service` table is not really part of the pager domain, we could have removed it and simply use a `serviceId` attribute instead.

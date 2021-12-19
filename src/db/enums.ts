@@ -6,7 +6,7 @@ export enum ETargetType {
 }
 
 export enum EIncidentStatus {
-  OPEN,
-  AKNOWLEDGED,
-  CLOSED,
+  OPEN, // when the incident is created
+  AKNOWLEDGED, //  when a target aknowledged
+  CLOSED, // when the incident is resolved
 }

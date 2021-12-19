@@ -1,10 +1,14 @@
-import { PrismaClient } from ".prisma/client";
+import { Incident, PrismaClient, Service } from ".prisma/client";
+import { NotifierAdapter, TimerAdapter } from "./adapters";
 import { ETargetType, EIncidentStatus } from "./db/enums";
 
 // If schema.prisma is updated, you will need to re-generate the PrismaClient
 // to reflect new types/models with `npx prisma migrate`
 const prisma = new PrismaClient();
 
+// The controllers should have validated the following:
+// - escalations are greather than 0
+// - escalations are continuous
 interface Target {
   type: ETargetType;
   contact: string;
@@ -16,10 +20,7 @@ interface Level {
   targets: Target[];
 }
 
-// update args to contain list of levels (wth escalation) and list of targets within
 export const upsertPolicy = async (policyName: string, serviceName: string, levels: Level[]) => {
-  // Data validation in the API controller, here we assume the data to be formated correctly
-
   const policy = await prisma.policy.upsert({
     where: { name: policyName },
     update: {}, // should update the services, the policiesLevels (escalation)
@@ -63,57 +64,135 @@ export const upsertPolicy = async (policyName: string, serviceName: string, leve
 
 // Update level targets
 
-// Close incident (mark service as healthy)
+export const listIncidents = async (serviceId: number) => {
+  const incidents = await prisma.incident.findMany({ where: { serviceId: serviceId } });
+  return incidents;
+};
+
 export const closeIncident = async (incidentId: number) => {
   const incident = await prisma.incident.update({
     where: { id: incidentId },
     data: { status: EIncidentStatus.CLOSED },
+    include: { service: true },
   });
-  const service = await prisma.service.update({
-    where: { id: incident.serviceId },
-    data: { healthy: true },
+  let service = incident.service;
+
+  const remainingIncidents = await prisma.incident.findMany({
+    where: {
+      NOT: { status: EIncidentStatus.CLOSED },
+      serviceId: incident.serviceId,
+    },
   });
+
+  // If all incidents are closed, then set service to healthy state
+  if (remainingIncidents.length === 0) {
+    service = await prisma.service.update({
+      where: { id: incident.serviceId },
+      data: { healthy: true },
+    });
+  }
 
   return { incident, service };
 };
 
-// Create incident (alert message, service id, DI start timer)
-export const createIncident = async (message: string, serviceId: number, timer: TimerAdapter) => {
+export const aknowledgeIncident = async (incidentId: number, targetId: number) => {
+  const incident = await prisma.incident.update({
+    where: { id: incidentId },
+    data: { status: EIncidentStatus.AKNOWLEDGED, targetId: targetId },
+  });
+
+  return incident;
+};
+
+export const createIncident = async (
+  message: string,
+  serviceId: number,
+  timer: TimerAdapter,
+  notifier: NotifierAdapter
+) => {
+  const service = await prisma.service.findUnique({ where: { id: serviceId } });
+
   const incident = await prisma.incident.create({
     data: {
-      message,
-      serviceId,
+      message: message,
+      serviceId: serviceId,
+      status: EIncidentStatus.OPEN,
     },
   });
 
-  const now = new Date();
-  const timeout = new Date(now.getTime() + 15 * 60000);
-  timer.setTimer(timeout, aknowledgeTimeout);
+  // Escalate and notify only healthy service
+  if (service?.healthy) {
+    escalateAndNotify(service, incident, timer, notifier);
+  }
 
-  return incident;
+  return { incident, service };
 };
 
-// Aknowledgement timeout (incident id)
-export const aknowledgeTimeout = async (incidentId: number) => {
-  // escalate
-  const incident = await prisma.incident.update({
-    where: { id: incidentId },
-    data: { status: EIncidentStatus.OPEN, escalation: { increment: 1 } },
+// should prevent escalation to unknown policy
+const escalateAndNotify = async (
+  service: Service,
+  incident: Incident,
+  timer: TimerAdapter,
+  notifier: NotifierAdapter
+) => {
+  // Set service status to unhealthy
+  service = await prisma.service.update({
+    where: { id: service.id },
+    data: { healthy: false },
   });
 
-  // do not escalate if service is healthy
-  // do not send email or sms if healthy of aknowledge
+  // Check if escalated policy exists
+  const policy = await prisma.policyLevel.findFirst({
+    where: { escalation: incident.escalation + 1, policyId: service.policyId },
+    include: { level: { include: { targets: true } } },
+  });
 
-  return incident;
+  // Should escalate because the escalted policy exists
+  if (policy) {
+    // Escalate incident (+ set updatedAt at now)
+    await prisma.incident.update({
+      where: { id: incident.id },
+      data: { escalation: { increment: 1 } },
+    });
+
+    // Notify targets
+    const targets = policy.level.targets || [];
+    targets.forEach((target) => notifier.notify(target));
+
+    // Trigger aknowldegement timeout in 15 minutes
+    const now = incident.updatedAt.getTime();
+    timer.setTimer(new Date(now + 15 * 60000), aknowledgeTimeout);
+  }
 };
 
-// Aknowledge incident (target id, incident id)
-export const aknowledgeIncident = async (incidentId: number, targetId: number) => {
-  // should mark the target id of the arknowledger
-  const incident = await prisma.incident.update({
+export const aknowledgeTimeout = async (
+  incidentId: number,
+  timer: TimerAdapter,
+  notifier: NotifierAdapter
+) => {
+  const incident = await prisma.incident.findUnique({
     where: { id: incidentId },
-    data: { status: EIncidentStatus.AKNOWLEDGED },
+    include: { service: true },
   });
+  if (!incident) {
+    return;
+  }
 
-  return incident;
+  const service = incident.service;
+
+  // No escalation if the service already recovered
+  if (service?.healthy) {
+    return;
+  }
+
+  // No escalation if the incident is already aknowledged or closed
+  if (
+    incident.status === EIncidentStatus.AKNOWLEDGED ||
+    incident.status === EIncidentStatus.CLOSED
+  ) {
+    return;
+  }
+
+  // Then escalate to next level
+  escalateAndNotify(service, incident, timer, notifier);
 };

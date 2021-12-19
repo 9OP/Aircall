@@ -21,6 +21,9 @@ model Incident {
   service   Service @relation(fields: [serviceId], references: [id])
   serviceId Int
 
+  target   Target? @relation(fields: [targetId], references: [id])
+  targetId Int?
+
   @@map("incidents")
 }
 
@@ -29,9 +32,9 @@ model Service {
   name    String  @unique
   healthy Boolean @default(true)
 
-  incident Incident[]
-  policy   Policy     @relation(fields: [policyId], references: [id])
-  policyId Int
+  incidents Incident[]
+  policy    Policy     @relation(fields: [policyId], references: [id])
+  policyId  Int
 
   @@index(name)
   @@map("services")
@@ -49,6 +52,7 @@ model Policy {
 }
 
 model PolicyLevel {
+  // should be greater than 0
   escalation Int
 
   policy   Policy @relation(fields: [policyId], references: [id])
@@ -57,8 +61,7 @@ model PolicyLevel {
   level   Level @relation(fields: [levelId], references: [id])
   levelId Int
 
-  @@id([policyId, levelId])
-  @@unique([policyId, levelId, escalation])
+  @@id([policyId, escalation])
   @@map("policies_levels")
 }
 
@@ -77,7 +80,8 @@ model Target {
   type    Int
   contact String
 
-  levels Level[]
+  levels   Level[]
+  Incident Incident[]
   @@unique([type, contact])
   @@map("targets")
 }
