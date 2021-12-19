@@ -7,9 +7,11 @@ CREATE TABLE "incidents" (
     "escalation" INTEGER NOT NULL DEFAULT 0,
     "status" INTEGER NOT NULL DEFAULT 0,
     "serviceId" INTEGER NOT NULL,
-    "targetId" INTEGER,
+    "aknowledgerId" INTEGER,
+    "closerId" INTEGER,
     CONSTRAINT "incidents_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "services" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "incidents_targetId_fkey" FOREIGN KEY ("targetId") REFERENCES "targets" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "incidents_aknowledgerId_fkey" FOREIGN KEY ("aknowledgerId") REFERENCES "targets" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "incidents_closerId_fkey" FOREIGN KEY ("closerId") REFERENCES "targets" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable

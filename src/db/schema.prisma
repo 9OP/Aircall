@@ -21,8 +21,10 @@ model Incident {
   service   Service @relation(fields: [serviceId], references: [id])
   serviceId Int
 
-  target   Target? @relation(fields: [targetId], references: [id])
-  targetId Int?
+  aknowledger   Target? @relation("aknowledger", fields: [aknowledgerId], references: [id])
+  aknowledgerId Int?
+  closer        Target? @relation("closer", fields: [closerId], references: [id])
+  closerId      Int?
 
   @@map("incidents")
 }
@@ -80,8 +82,10 @@ model Target {
   type    Int
   contact String
 
-  levels   Level[]
-  Incident Incident[]
+  levels               Level[]
+  aknowledgedIncidents Incident[] @relation("aknowledger")
+  closedIncidents      Incident[] @relation("closer")
+
   @@unique([type, contact])
   @@map("targets")
 }

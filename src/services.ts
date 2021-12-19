@@ -21,36 +21,41 @@ interface Level {
 }
 
 export const upsertPolicy = async (policyName: string, serviceName: string, levels: Level[]) => {
-  const policy = await prisma.policy.upsert({
-    where: { name: policyName },
-    update: {}, // should update the services, the policiesLevels (escalation)
-    create: {
-      name: policyName,
-      services: {
-        // Connect or create if serviceName already exists or not
-        connectOrCreate: { where: { name: serviceName }, create: { name: serviceName } },
-      },
-      policiesLevels: {
-        create: levels.map((level) => ({
-          escalation: level.escalation,
-          level: {
-            connectOrCreate: {
-              // The existing level's targets is not updated if already existing
-              where: { name: level.name },
-              // Create targets if the level does not exist yet
-              create: {
-                name: level.name,
-                targets: {
-                  create: level.targets.map((target) => ({
-                    contact: target.contact,
-                    type: target.type,
-                  })),
-                },
+  const upsert = {
+    services: {
+      // Connect or create if serviceName already exists or not
+      connectOrCreate: { where: { name: serviceName }, create: { name: serviceName } },
+    },
+    policiesLevels: {
+      // Create policy's escalations
+      create: levels.map((level) => ({
+        escalation: level.escalation,
+        level: {
+          // Connect or create if levelNames exists or not
+          connectOrCreate: {
+            where: { name: level.name },
+            create: {
+              name: level.name,
+              // Create level with the provided targets
+              targets: {
+                create: level.targets.map((target) => ({
+                  contact: target.contact,
+                  type: target.type,
+                })),
               },
             },
           },
-        })),
-      },
+        },
+      })),
+    },
+  };
+
+  const policy = await prisma.policy.upsert({
+    where: { name: policyName },
+    update: upsert,
+    create: {
+      name: policyName,
+      ...upsert,
     },
     // Multi-join on Service, PolicyLevel, Level and Target
     include: {
@@ -62,17 +67,41 @@ export const upsertPolicy = async (policyName: string, serviceName: string, leve
   return policy;
 };
 
-// Update level targets
+export const upsertLevel = async (level: Level) => {
+  const upsert = {
+    targets: {
+      connectOrCreate: level.targets.map((target) => ({
+        // composite key
+        where: { type_contact: { type: target.type, contact: target.contact } },
+        create: { type: target.type, contact: target.contact },
+      })),
+    },
+  };
+
+  const upsertedLevel = await prisma.level.upsert({
+    where: { name: level.name },
+    update: upsert,
+    create: {
+      name: level.name,
+      ...upsert,
+    },
+    include: {
+      targets: true,
+    },
+  });
+
+  return upsertedLevel;
+};
 
 export const listIncidents = async (serviceId: number) => {
   const incidents = await prisma.incident.findMany({ where: { serviceId: serviceId } });
   return incidents;
 };
 
-export const closeIncident = async (incidentId: number) => {
+export const closeIncident = async (incidentId: number, closerId: number) => {
   const incident = await prisma.incident.update({
     where: { id: incidentId },
-    data: { status: EIncidentStatus.CLOSED },
+    data: { status: EIncidentStatus.CLOSED, closerId: closerId },
     include: { service: true },
   });
   let service = incident.service;
@@ -95,10 +124,10 @@ export const closeIncident = async (incidentId: number) => {
   return { incident, service };
 };
 
-export const aknowledgeIncident = async (incidentId: number, targetId: number) => {
+export const aknowledgeIncident = async (incidentId: number, aknowledgerId: number) => {
   const incident = await prisma.incident.update({
     where: { id: incidentId },
-    data: { status: EIncidentStatus.AKNOWLEDGED, targetId: targetId },
+    data: { status: EIncidentStatus.AKNOWLEDGED, aknowledgerId: aknowledgerId },
   });
 
   return incident;
